@@ -34,35 +34,33 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const addProduct = async (productId: number) => {
     try {
-      let existingProduct = cart.find(product => product.id === productId)
+      let existingProductCart = cart.find(product => product.id === productId);
       let newCart: Product[] = []
       const productStock: Stock = await api.get(`stock/${productId}`).then(response => response.data)
       
-      if (productStock.amount <= 0) {
-        throw new Error('Quantidade solicitada fora de estoque');
-      }
-
-      if (!existingProduct) {
+      if (!existingProductCart) {
+        if (!productStock || productStock.amount <= 0) {
+          toast.error('Quantidade solicitada fora de estoque')
+        }
         const { data } = await api.get<Omit<Product, 'amount'>>(`/products/${productId}`)
-        existingProduct = {
+        existingProductCart = {
           ...data,
           amount: 1
         }
-        newCart = [...cart, existingProduct]
+        newCart = [...cart, existingProductCart]
         setCart(newCart)
       } else {
-        const productInCart = cart.find(product => product.id === productId)
-        if (productInCart) {
-          const productAmount = productInCart.amount + 1
+        if (existingProductCart.amount === productStock.amount || productStock.amount <= 0) {
+          toast.error('Quantidade solicitada fora de estoque')
+        } else {
+          const productAmount = existingProductCart.amount + 1
           updateProductAmount({
             productId: productId,
             amount: productAmount
           })
         }
       }
-
       localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
-
     } catch {
       toast.error('Erro na adição do produto');
     }
@@ -70,7 +68,10 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
 
   const removeProduct = (productId: number) => {
     try {
-      const newCart = cart.filter(product => product.id !== productId)
+      const newCart = cart.filter(product => product.id !== productId);
+      if (!newCart) {
+        toast.error('Erro na remoção do produto')
+      }
       localStorage.setItem('@RocketShoes:cart', JSON.stringify(newCart))
       setCart(newCart)
     } catch {
